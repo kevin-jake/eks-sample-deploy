@@ -1,0 +1,29 @@
+# Mongo Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mongo
+  namespace: gradebook-app
+spec:
+  selector:
+    app: mongo
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 27017
+
+# NodeJS Service
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nodeapp
+  namespace: gradebook-app
+spec:
+  selector:
+    app: nodeapp
+  type: NodePort
+  ports:
+    - protocol: TCP
+      port: 3000
