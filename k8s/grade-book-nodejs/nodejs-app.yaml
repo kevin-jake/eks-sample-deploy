@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gradebook-nodejs-app
+  labels:
+    app: gradebook-nodejs-app
+spec:
+  containers:
+    - name: gradebook-nodejs-app
+      image: kevinjake/node-gradebook-app:latest
+      resources:
+        limits:
+          memory: "128Mi"
+          cpu: "500m"
+      ports:
+        - containerPort: 3000
