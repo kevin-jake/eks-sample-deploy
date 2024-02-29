@@ -1,19 +1,11 @@
 locals {
-  all_subnets = concat([
-    element(aws_subnet.public_subnet[*].id, 0),
-    element(aws_subnet.public_subnet[*].id, 1),
-    ], [
-    element(aws_subnet.private_subnet[*].id, 0),
-    element(aws_subnet.private_subnet[*].id, 1),
-  ])
-  all_public_subnets = [
-    element(aws_subnet.public_subnet[*].id, 0),
-    element(aws_subnet.public_subnet[*].id, 1),
-  ]
-  all_private_subnets = [
-    element(aws_subnet.public_subnet[*].id, 0),
-    element(aws_subnet.public_subnet[*].id, 1),
-  ]
+  all_subnets = concat(
+    [for i in range(length(aws_subnet.public_subnet[*].id)) : aws_subnet.public_subnet[i].id],
+    [for i in range(length(aws_subnet.private_subnet[*].id)) : aws_subnet.private_subnet[i].id]
+  )
+  all_public_subnets = [for i in range(length(aws_subnet.public_subnet[*].id)) : aws_subnet.public_subnet[i].id]
+
+  all_private_subnets = [for i in range(length(aws_subnet.private_subnet[*].id)) : aws_subnet.private_subnet[i].id]
 }
 
 resource "aws_eks_cluster" "main" {
