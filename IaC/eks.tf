@@ -18,9 +18,6 @@ resource "aws_eks_cluster" "main" {
     endpoint_public_access  = true
     subnet_ids              = local.all_subnets
   }
-
-  # Ensure that IAM Role permissions are created before and deleted after EKS Cluster handling.
-  # Otherwise, EKS will not be able to properly delete EKS managed EC2 infrastructure such as Security Groups.
   depends_on = [
     aws_iam_role_policy_attachment.AmazonEKSClusterPolicy,
     aws_iam_role_policy_attachment.AmazonEKSServicePolicy,
@@ -34,31 +31,52 @@ resource "aws_instance" "kubectl-server" {
   instance_type               = "t2.micro"
   associate_public_ip_address = true
   subnet_id                   = aws_subnet.public_subnet[0].id
-  vpc_security_group_ids      = [aws_security_group.allow_tls.id]
-
   tags = {
     Name        = "kubectl"
     environment = var.environment_tag
   }
 }
 
-resource "aws_eks_node_group" "sample-grp" {
+resource "aws_eks_node_group" "private_nodegrp" {
   cluster_name    = aws_eks_cluster.main.name
-  node_group_name = "node-node-group"
+  node_group_name = "${var.eks_cluster_name}-private-nodegrp"
   node_role_arn   = aws_iam_role.worker.arn
-  subnet_ids      = local.all_subnets
-  capacity_type   = "ON_DEMAND"
-  disk_size       = 20
-  instance_types  = ["t2.small"]
+  subnet_ids      = local.all_private_subnets
 
-  remote_access {
-    ec2_ssh_key               = "kevinprod-EC2"
-    source_security_group_ids = [aws_security_group.allow_tls.id]
+  capacity_type  = "ON_DEMAND"
+  disk_size      = 20
+  instance_types = ["t2.small"]
+  scaling_config {
+    desired_size = 1
+    max_size     = 1
+    min_size     = 1
+  }
+
+  update_config {
+    max_unavailable = 1
   }
 
   labels = {
-    env = var.environment_tag
+    environment = var.environment_tag
   }
+
+  depends_on = [
+    aws_iam_role_policy_attachment.AmazonEKSWorkerNodePolicy,
+    aws_iam_role_policy_attachment.AmazonEKS_CNI_Policy,
+    aws_iam_role_policy_attachment.AmazonEC2ContainerRegistryReadOnly,
+  ]
+}
+
+resource "aws_eks_node_group" "public_nodegrp" {
+  cluster_name    = aws_eks_cluster.main.name
+  node_group_name = "${var.eks_cluster_name}-public-nodegrp"
+  node_role_arn   = aws_iam_role.worker.arn
+  subnet_ids      = local.all_public_subnets
+
+  capacity_type  = "ON_DEMAND"
+  disk_size      = 20
+  instance_types = ["t2.small"]
+
 
   scaling_config {
     desired_size = 2
@@ -68,6 +86,10 @@ resource "aws_eks_node_group" "sample-grp" {
 
   update_config {
     max_unavailable = 1
+  }
+
+  labels = {
+    environment = var.environment_tag
   }
 
   depends_on = [
