@@ -43,30 +43,30 @@ output "cluster_primary_security_group_id" {
   value       = try(aws_eks_cluster.main.vpc_config[0].cluster_security_group_id, null)
 }
 
-output vpc_arn {
-  value = aws_vpc.mern_vpc.arn
+output "vpc_arn" {
+  value = aws_vpc.eks_vpc.arn
 }
 
-output vpc_id {
-  value = aws_vpc.mern_vpc.id
+output "vpc_id" {
+  value = aws_vpc.eks_vpc.id
 }
 
-output private_subnet_ids {
+output "private_subnet_ids" {
   value = aws_subnet.private_subnet.*.id
 }
 
-output public_subnet_ids {
+output "public_subnet_ids" {
   value = aws_subnet.public_subnet.*.id
 }
 
-output control_plane_sg_security_group_id {
+output "control_plane_sg_security_group_id" {
   value = aws_security_group.control_plane_sg.id
 }
 
-output data_plane_sg_security_group_id {
+output "data_plane_sg_security_group_id" {
   value = aws_security_group.data_plane_sg.id
 }
 
-output public_subnet_security_group_id {
+output "public_subnet_security_group_id" {
   value = aws_security_group.public_sg.id
 }

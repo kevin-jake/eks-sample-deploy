@@ -1,82 +1,79 @@
 #Create a custom VPC
-  resource "aws_vpc" "mern_vpc" {
-    cidr_block = "10.0.0.0/16"
-    tags = {
-      "Name" = "mern_vpc"
-    }
-  }
-
-#Create Public Subnet
-  resource "aws_subnet" "public_subnet" {
-    vpc_id                  = aws_vpc.mern_vpc.id
-    cidr_block              = "10.0.1.0/24"
-    availability_zone       = "ap-southeast-1a"
-    map_public_ip_on_launch = true
-    tags = {
-      "Name" = "MERN-Public-subnet01"
-    }
-  }
-
-  resource "aws_subnet" "public_subnet2" {
-    vpc_id                  = aws_vpc.mern_vpc.id
-    cidr_block              = "10.0.3.0/24"
-    availability_zone       = "ap-southeast-1b"
-    map_public_ip_on_launch = true
-    tags = {
-      "Name" = "MERN-Public-subnet02"
-    }
-  }
-  
-
-#Create Private Subnet
-resource "aws_subnet" "private_subnet" {
-  vpc_id            = aws_vpc.mern_vpc.id
-  cidr_block = "10.0.2.0/24"
-  availability_zone = "ap-southeast-1a"
-
+resource "aws_vpc" "eks_vpc" {
+  cidr_block = "10.0.0.0/16"
   tags = {
-    "Name" = "MERN-Private-subnet01"
+    "Name"        = "${var.eks_cluster_name}_vpc"
+    "environment" = var.environment_tag
   }
 }
 
-  # Creating Internet Gateway IGW
-  resource "aws_internet_gateway" "mern_igw" {
-    vpc_id = aws_vpc.mern_vpc.id
-    tags = {
-      "Name" = "MERN-IGW"
-    }
+#Create Public Subnet
+resource "aws_subnet" "public_subnet" {
+  count                   = length(var.availability_zones)
+  vpc_id                  = aws_vpc.eks_vpc.id
+  cidr_block              = element(var.public_subnet_cidr_blocks, count.index)
+  availability_zone       = element(var.availability_zones, count.index)
+  map_public_ip_on_launch = true
+  tags = {
+    Name        = "${var.eks_cluster_name}-public-subnet-${element(var.availability_zones, count.index)}"
+    environment = var.environment_tag
   }
+}
 
-  # Creating Route Table
-  resource "aws_route_table" "mern_rt" {
-    vpc_id = aws_vpc.mern_vpc.id
-    tags = {
-      "Name" = "MERN-Route-Table"
-    }
-  }
+resource "aws_subnet" "private_subnet" {
+  count             = length(var.availability_zones)
+  vpc_id            = aws_vpc.eks_vpc.id
+  cidr_block        = element(var.private_subnet_cidr_blocks, count.index)
+  availability_zone = element(var.availability_zones, count.index)
 
-  # Create a Route in the Route Table with a route to IGW
-  resource "aws_route" "mern_route" {
-    route_table_id         = aws_route_table.mern_rt.id
-    destination_cidr_block = "0.0.0.0/0"
-    gateway_id             = aws_internet_gateway.mern_igw.id
+  tags = {
+    Name        = "${var.eks_cluster_name}-private-subnet-${element(var.availability_zones, count.index)}"
+    environment = var.environment_tag
   }
+}
+
+# Creating Internet Gateway IGW
+resource "aws_internet_gateway" "eks_igw" {
+  vpc_id = aws_vpc.eks_vpc.id
+  tags = {
+    "Name"        = "eks-IGW"
+    "environment" = var.environment_tag
+  }
+}
+
+# Creating Route Table
+resource "aws_route_table" "eks_rt" {
+  vpc_id = aws_vpc.eks_vpc.id
+  tags = {
+    "Name"        = "${var.eks_cluster_name}-Route-Table"
+    "environment" = var.environment_tag
+  }
+}
+
+# Create a Route in the Route Table with a route to IGW
+resource "aws_route" "eks_route" {
+  route_table_id         = aws_route_table.eks_rt.id
+  destination_cidr_block = "0.0.0.0/0"
+  gateway_id             = aws_internet_gateway.eks_igw.id
+}
 
 # Route table and subnet associations
 resource "aws_route_table_association" "internet_access" {
-  subnet_id      = aws_subnet.public_subnet.id
-  route_table_id = aws_route_table.mern_rt.id
+  count          = length(aws_subnet.public_subnet)
+  subnet_id      = aws_subnet.public_subnet[count.index].id
+  route_table_id = aws_route_table.eks_rt.id
 }
 
 # Create Elastic IP
 resource "aws_eip" "main" {
-  vpc              = true
+  vpc = true
 }
 
 # Create NAT Gateway
 resource "aws_nat_gateway" "main" {
+  count         = length(aws_subnet.public_subnet)
   allocation_id = aws_eip.main.id
-  subnet_id     = aws_subnet.public_subnet.id
+  subnet_id     = aws_subnet.public_subnet[count.index].id
 
   tags = {
     Name = "NAT Gateway for Custom Kubernetes Cluster"
@@ -85,7 +82,8 @@ resource "aws_nat_gateway" "main" {
 
 # Add route to route table
 resource "aws_route" "main" {
-  route_table_id            = aws_vpc.mern_vpc.default_route_table_id
-  destination_cidr_block    = "0.0.0.0/0"
-  nat_gateway_id = aws_nat_gateway.main.id
+  count                  = length(aws_subnet.public_subnet)
+  route_table_id         = aws_vpc.eks_vpc.default_route_table_id
+  destination_cidr_block = "0.0.0.0/0"
+  nat_gateway_id         = aws_nat_gateway.main[count.index].id
 }
