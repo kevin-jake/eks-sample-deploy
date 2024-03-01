@@ -119,3 +119,17 @@ To test the app please refer to this section [Testing](https://github.com/kevin-
 - For Kubernetes manifests files, we can simply make helm charts to make it easier to organize and make the manifests files reusable.
 - We can also implement a CI/CD pipeline, possibly using Jenkins or Github Actions, that will automatically update our cluster when a git push happened within the Grade Book Application.
 - There are still a security improvement that we can do by specifying the security groups and also isolating pods into private nodes. Example of these are those pods that are not supposed to be accessed by the public like mongodb.
+
+### Clean up
+
+To clean everything just follow the commands below
+
+```
+kubectl delete -f k8s/podinfo
+kubectl delete -f k8s/grade-book-app
+
+kubectl config unset current-context
+
+cd IaC
+terraform destroy
+```
